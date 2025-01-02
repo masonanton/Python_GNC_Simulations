@@ -47,6 +47,36 @@ velz0 = 0.0
 velx0 = 0.0
 period = 6000 
 
+### Create an aerodynamics class
+class Aerodynamics(): 
+    def __init__(self):
+        if useKerbin:
+            ### Import the aeromodel of interpolation
+            data = np.loadtxt('kerbin_aerodynamics.txt')
+            self.altitude = data[:,0]
+            self.density = data[:,3]
+            self.rhos = self.density[0]
+            self.beta = 0.0
+        else:
+            ### use the Earth aero model (exponent)
+            self.beta = 0.1354/1000.0 ##density constant - exponential
+            self.rhos = 1.225 #kg/m^3 - at sea level
+
+    def getDensity(self, altitude):
+        if useKerbin:
+            ### interpolate
+            rho = np.interp(altitude,self.altitude,self.density)
+        else:
+            ### use special equation
+            rho = self.rhos * np.exp(-self.beta * altitude)
+        return rho
+
+
+
+# Create the aeromodel variable which is an instance of the class Aerodynamics
+# Global
+aeroModel = Aerodynamics()
+
 # Gravitational Acceleration Model
 def gravity(x, z):
     global rPlanet, mPlanet
@@ -125,6 +155,15 @@ def Derivatives(state, t):
 # Verify Surface Gravity
 surface_gravity = gravity(0, rPlanet)
 print('Surface Gravity (m/s^2) = ', surface_gravity)
+
+### Plot air density as a function of altitude
+test_altitude = np.linspace(0, 100000, 100)
+test_rho = aeroModel.getDensity(test_altitude)
+plt.figure()
+plt.plot(test_altitude, test_rho, 'b-')
+plt.xlabel('Altitude (m)')
+plt.ylabel('Air Density (kg/m^3)')
+plt.grid()
 
 ''' Initial Conditions for orbit
 x0 = rPlanet + 600000  # m, 600 km above the surface
