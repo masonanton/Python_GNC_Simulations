@@ -40,12 +40,18 @@ mass1tons = 0.2
 mass1 = mass1tons*2000/2.2
 t2start = 261.0
 t2end = t2start + 18.0
+D = 15.0 / 3.28 ## diameter of rocket in meters
+S = np.pi*(D/2.0)**2 ## cross sectional area of rocket in meters
+
+# for debugging
+D = 0.85
+CD = 0.1 ## drag coefficient
 # Initial conditions for single stage rocket
 x0 = rPlanet
 z0 = 0.0
 velz0 = 0.0
 velx0 = 0.0
-period = 6000 
+period = 24000 
 
 ### Create an aerodynamics class
 class Aerodynamics(): 
@@ -81,13 +87,13 @@ aeroModel = Aerodynamics()
 def gravity(x, z):
     global rPlanet, mPlanet
     r = np.sqrt(x**2 + z**2)
-    if r < 0:
+    if r < rPlanet:
         accelx = 0.0
         accelz = 0.0
     else:
         accelx = -G * mPlanet / (r**3) * x  # Negative sign ensures direction towards planet
         accelz = -G * mPlanet / (r**3) * z
-    return np.asarray([accelx, accelz])
+    return np.asarray([accelx, accelz]), r
 
 def propulsion(t):
     global max_thrust, isp, tMECO
@@ -127,13 +133,24 @@ def propulsion(t):
 
 # Equations of Motion
 def Derivatives(state, t):
+    global aeroModel
+    ## state vector
     x, z, velx, velz, mass = state
     zdot = velz
     xdot = velx
 
     # Compute total forces
-    gravityF = gravity(x, z) * mass  # Gravity force towards planet
-    aeroF = np.asarray([0.0, 0.0])  # Aerodynamic forces (set to zero)
+    # Gravity
+    accel, r = gravity(x,z)
+    gravityF = accel * mass # Gravity force towards planet
+
+    # Aero
+    altitude = r - rPlanet # alt above the surface
+    rho = aeroModel.getDensity(altitude) # air density
+    V = np.sqrt(velz**2 + velx**2) # total velocity
+    qinf = np.pi/8.0*rho*D**2*abs(V) 
+    aeroF = -qinf*CD*np.asarray([velx, velz])  # Aerodynamic force that opposes motion
+    
     thrustF, mdot = propulsion(t) # Thrust forces (set to zero)
 
     Forces = gravityF + aeroF + thrustF
